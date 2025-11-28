@@ -120,3 +120,94 @@ optgroup option {
     color: #e2e8f0;
     padding-left: 12px;
 }
+/* Result Card Styles */
+.result-card {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.5rem;
+    padding: 3rem 2rem;
+    color: var(--color-text-secondary);
+    width: 100%;
+    min-height: 200px;
+}
+
+.spinner {
+    animation: spin 1s linear infinite;
+    color: var(--color-accent-primary);
+    width: 48px;
+    height: 48px;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.header-left, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.header-left {
+    color: var(--color-accent-primary);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.result-icon-sparkle {
+    color: var(--color-accent-secondary);
+}
+
+.result-icon-ai {
+    color: #fbbf24;
+}
+
+.cache-badge {
+    padding: 0.25rem 0.5rem;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+}
+
+.regenerate-btn {
+    background: transparent;
+    color: var(--color-text-secondary);
+    padding: 0.25rem;
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+}
+
+.regenerate-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-primary);
+    transform: rotate(180deg);
+}

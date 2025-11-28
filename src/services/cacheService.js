@@ -1,4 +1,4 @@
-const CACHE_KEY_PREFIX = 'contextify_cache_';
+const CACHE_KEY_PREFIX = 'contextify_cache_v6_';
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 const MAX_CACHE_SIZE = 100; // Maximum number of cached items
 

@@ -4,6 +4,7 @@ import ResultCard from './ResultCard';
 import { convertDistance, convertCurrency, convertWeight, convertTemperature, convertTime } from '../utils/converter';
 import { generateContext, getLLMProvider } from '../services/llmService';
 import { getApiKey } from '../services/apiKeyManager';
+import { getCacheKey } from '../services/cacheService';
 import { PURCHASING_POWER, CURRENCY_RATES } from '../data/conversions';
 import { DISTANCE_UNITS, WEIGHT_UNITS, TEMPERATURE_UNITS, TIME_UNITS } from '../data/units';
 
@@ -80,8 +81,16 @@ const Converter = ({ onOpenSettings }) => {
         const val = parseFloat(inputValue);
 
         // Clear the specific cache entry to force a fresh API call
-        const cacheKey = `${mode}_${val}_${mode === 'currency' ? currency : inputUnit}_${mode === 'currency' ? targetCity : 'null'}_${contextStyle}`;
-        localStorage.removeItem(`contextify_cache_${cacheKey}`);
+        // Use getCacheKey to ensure we match the key used by llmService
+        const baseKey = getCacheKey(
+            mode,
+            val,
+            mode === 'currency' ? currency : inputUnit,
+            mode === 'currency' ? targetCity : null
+        );
+        const fullKey = baseKey + `_${contextStyle}`;
+
+        localStorage.removeItem(fullKey);
 
         // Force a new conversion
         setLoading(true);
@@ -103,6 +112,14 @@ const Converter = ({ onOpenSettings }) => {
                     fromCache: false,
                     mode: mode
                 });
+
+                // Scroll to result after a short delay to ensure render
+                setTimeout(() => {
+                    const resultElement = document.querySelector('.result-card');
+                    if (resultElement) {
+                        resultElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 100);
             } else {
                 const staticResult = getStaticResult(mode, val);
                 setResult(staticResult);
