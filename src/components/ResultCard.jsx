@@ -26,7 +26,6 @@ const ResultCard = ({ result, type, loading, onRegenerate }) => {
           <span className="result-label">{isLLM ? 'AI-Powered Context' : 'In Context'}</span>
         </div>
         <div className="header-right">
-          {isLLM && result.fromCache && <span className="cache-badge">Cached</span>}
           {isLLM && (
             <button className="regenerate-btn" onClick={onRegenerate} title="Regenerate">
               <RefreshCw size={16} />

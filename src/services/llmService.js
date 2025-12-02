@@ -3,6 +3,7 @@ import { getCacheKey, getCachedResult, setCachedResult } from './cacheService';
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
 const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+const OPENAI_MODEL = 'gpt-4o-mini'; // Change this to add/switch models
 
 // Helper to get base value for better LLM accuracy
 // Helper to get base value for better LLM accuracy
@@ -76,33 +77,62 @@ const getBaseValue = (type, value, unit) => {
 // Standard reference sizes for accurate calculations
 const REFERENCE_SIZES = {
     distance: `
+    - Atom: 1e-10 meters
+    - Virus: 1e-7 meters
+    - Grain of Sand: 0.002 meters (2mm)
     - Football Field: 100 meters
-    - City Block: 100 meters (approx)
-    - Bus: 12 meters
     - Eiffel Tower: 300 meters
     - Mt. Everest: 8,848 meters
-    - Earth Diameter: 12,742 km
-    - Sun Diameter: 1.4 million km
-    - AU (Earth-Sun): 150 million km
-    - Light Year: 9.46 trillion km
-    - Milky Way Diameter: 100,000 light years
+    - Marathon: 42,195 meters
+    - Earth Diameter: 12,742 km (1.27e7 meters)
+    - Moon Distance: 384,400 km (3.84e8 meters)
+    - Sun Diameter: 1.4 million km (1.4e9 meters)
+    - AU (Earth-Sun): 150 million km (1.5e11 meters)
+    - Light Year: 9.46 trillion km (9.46e15 meters)
+    - Milky Way Diameter: 100,000 light years (9.5e20 meters)
+    - Observable Universe: 93 billion light years (8.8e26 meters)
     `,
     weight: `
-    - Blue Whale: 150,000 kg (150 tons)
-    - Elephant: 5,000 kg (5 tons)
-    - Car: 2,000 kg (2 tons)
-    - Human: 70 kg
+    - Electron: 9.1e-31 kg
+    - Proton: 1.67e-27 kg
+    - Grain of Sand: 1e-6 kg (1mg)
     - Apple: 0.2 kg
+    - Human: 70 kg
+    - Car: 2,000 kg (2 tons)
+    - Elephant: 5,000 kg (5 tons)
+    - Blue Whale: 150,000 kg (150 tons)
+    - Boeing 747: 400,000 kg (400 tons)
+    - Great Pyramid: 6 billion kg (6 million tons)
     - Earth Mass: 5.97 x 10^24 kg
     - Sun Mass: 1.989 x 10^30 kg
+    - Milky Way Mass: 3 x 10^42 kg
     `,
     time: `
-    - Movie: 2 hours
-    - Day: 24 hours
-    - Year: 365 days
-    - Human Lifespan: 80 years
-    - Recorded History: 5,000 years
-    - Age of Universe: 13.8 billion years
+    - Nanosecond: 1e-9 seconds
+    - Blink of an Eye: 0.3 seconds
+    - Movie: 2 hours (7,200 seconds)
+    - Day: 24 hours (86,400 seconds)
+    - Month: 30 days (2.6e6 seconds)
+    - Year: 365 days (3.15e7 seconds)
+    - Decade: 10 years (3.15e8 seconds)
+    - Human Lifespan: 80 years (2.5e9 seconds)
+    - Recorded History: 5,000 years (1.58e11 seconds)
+    - Ice Age Duration: 100,000 years (3e12 seconds)
+    - Age of Earth: 4.5 billion years (1.4e17 seconds)
+    - Age of Universe: 13.8 billion years (4.35e17 seconds)
+    `,
+    temperature: `
+    - Absolute Zero: -273.15°C
+    - Liquid Nitrogen: -196°C
+    - Freezing Point: 0°C
+    - Room Temperature: 20°C
+    - Human Body: 37°C
+    - Boiling Water: 100°C
+    - Pizza Oven: 400°C
+    - Lava: 1,200°C
+    - Sun Surface: 5,500°C
+    - Lightning Bolt: 30,000°C
+    - Sun Core: 15 million°C (1.5e7°C)
     `
 };
 
@@ -110,10 +140,11 @@ const REFERENCE_SIZES = {
 const PROMPTS = {
     distance: (value, unit, style = 'General', base = null) => `You are a helpful assistant that creates relatable comparisons. Convert ${value} ${unit} ${base ? `(approx ${base.str})` : ''} into exactly 3 creative, practical, and easy-to-visualize comparisons.
     - Context Style: ${style} (STRICTLY adhere to this theme).
-    - REFERENCE SIZES (USE THESE CONSTANTS):
+    - REFERENCE SIZES (CALIBRATION ANCHORS):
       ${REFERENCE_SIZES.distance}
+      (Use these to calibrate scale. You MAY use these OR choose other entities that better fit the '${style}' style.)
     - MATH CHECK (CRITICAL):
-      - 1. Identify the Reference Object size.
+      - 1. Identify the Reference Object size (from the list or your internal knowledge).
       - 2. MAGNITUDE CHECK: Is Input (${value} ${unit}) > Reference Object?
          - YES: Result MUST be "X times the [Object]". (e.g., 10 ly > 4.3 ly Alpha Centauri -> "2.3 times the distance").
          - NO: Result MUST be a fraction.
@@ -138,10 +169,11 @@ const PROMPTS = {
 
     weight: (value, unit, style = 'General', base = null) => `You are a helpful assistant that creates relatable comparisons. Convert ${value} ${unit} ${base ? `(approx ${base.str})` : ''} into exactly 3 creative, practical comparisons.
     - Context Style: ${style} (STRICTLY adhere to this theme).
-    - REFERENCE SIZES (USE THESE CONSTANTS):
+    - REFERENCE SIZES (CALIBRATION ANCHORS):
       ${REFERENCE_SIZES.weight}
+      (Use these to calibrate scale. You MAY use these OR choose other entities that better fit the '${style}' style.)
     - MATH CHECK (CRITICAL):
-      - 1. Identify the Reference Object size.
+      - 1. Identify the Reference Object size (from the list or your internal knowledge).
       - 2. MAGNITUDE CHECK: Is Input (${value} ${unit}) > Reference Object?
          - YES: Result MUST be "X times the [Object]".
          - NO: Result MUST be a fraction.
@@ -164,6 +196,9 @@ const PROMPTS = {
 
     temperature: (value, unit, style = 'General', base = null) => `You are a helpful assistant that creates relatable comparisons. Describe ${value}°${unit} ${base ? `(approx ${base.str})` : ''} in terms of weather, activities, or familiar reference points.
     - Context Style: ${style} (STRICTLY adhere to this theme).
+    - REFERENCE SIZES (CALIBRATION ANCHORS):
+      ${REFERENCE_SIZES.temperature}
+      (Use these to calibrate scale. You MAY use these OR choose other entities that better fit the '${style}' style.)
     - PHRASING RULES (STRICT):
       - DO NOT repeat the input value.
       - Start directly with the magnitude.
@@ -177,10 +212,11 @@ const PROMPTS = {
 
     time: (value, unit, style = 'General', base = null) => `You are a helpful assistant that creates relatable comparisons. Convert ${value} ${unit} ${base ? `(approx ${base.str})` : ''} into exactly 3 practical comparisons.
     - Context Style: ${style} (STRICTLY adhere to this theme).
-    - REFERENCE SIZES (USE THESE CONSTANTS):
+    - REFERENCE SIZES (CALIBRATION ANCHORS):
       ${REFERENCE_SIZES.time}
+      (Use these to calibrate scale. You MAY use these OR choose other entities that better fit the '${style}' style.)
     - MATH CHECK (CRITICAL):
-      - 1. Identify the Reference Object size.
+      - 1. Identify the Reference Object size (from the list or your internal knowledge).
       - 2. MAGNITUDE CHECK: Is Input (${value} ${unit}) > Reference Object?
          - YES: Result MUST be "X times the [Object]".
          - NO: Result MUST be a fraction.
@@ -197,28 +233,79 @@ const PROMPTS = {
     - For very short times, express as "X of these make a [longer duration]" instead of tiny fractions.
     - Return ONLY a JSON array with this exact format: [{"description": "Since the Pyramids were built", "icon": "🏛️"}]. Use appropriate emojis for icons.`,
 
-    currency: (value, currency, city, style = 'General') => `You are a helpful assistant that creates relatable purchasing power comparisons. For ${value} ${currency} in ${city}, suggest exactly 3 culturally relevant, practical items someone could buy. 
-    - Context Style: ${style} (STRICTLY adhere to this theme).
-    - PHRASING RULES (STRICT):
-      - DO NOT repeat the input value.
-      - Start directly with the item name.
-    - IF style is 'Sports', suggest tickets, equipment, or stadium food.
-    - IF style is 'Pop Culture', suggest movie tickets, merchandise, or streaming subscriptions.
-    - Be DIVERSE within the chosen style.
-    - Avoid fractional quantities. 
-    - Return ONLY a JSON array with this exact format: [{"item": "Street tacos", "quantity": "5", "icon": "🌮"}]. Use appropriate emojis for icons.`
+    currency: (value, currency, city, style = 'General') => `You are a helpful assistant that creates purchasing power comparisons. For ${value} ${currency} in ${city}, calculate how many of each predefined item category someone could buy.
+
+PREDEFINED ITEM CATEGORIES (choose 3 from this list):
+
+GENERAL CATEGORIES:
+- "movie tickets"
+- "restaurant meals at a local eatery"
+- "months of groceries for one person"
+- "budget smartphones"
+- "premium smartphones"
+- "monthly transit passes"
+- "pairs of running shoes"
+- "pairs of jeans"
+
+SPORTS CATEGORIES (use these if style is 'Sports'):
+- "monthly gym memberships"
+- "pairs of running shoes"
+- "sports jerseys"
+- "yoga classes"
+- "swimming pool day passes"
+- "cricket bats"
+- "footballs (soccer balls)"
+- "sports event tickets"
+
+POP CULTURE CATEGORIES (use these if style is 'Pop Culture'):
+- "movie tickets"
+- "streaming service subscriptions (monthly)"
+- "concert tickets at a local venue"
+- "video games"
+- "comic books"
+- "band t-shirts"
+
+SCIENCE CATEGORIES (use these if style is 'Science'):
+- "science textbooks"
+- "lab equipment sets for students"
+- "science museum annual passes"
+- "telescope accessories"
+- "microscope slides sets"
+- "chemistry experiment kits"
+- "planetarium tickets"
+- "science magazine subscriptions (annual)"
+
+NATURE CATEGORIES (use these if style is 'Nature'):
+- "national park entry passes"
+- "hiking boots"
+- "camping gear items"
+- "binoculars for birdwatching"
+- "plant seeds packets"
+- "gardening tool sets"
+- "nature photography books"
+- "wildlife sanctuary visits"
+
+CALCULATION EXAMPLE:
+If ${value} ${currency} = 10,000 INR in Mumbai, and movie tickets cost 250 INR each:
+Quantity = 10,000 / 250 = 40 movie tickets
+
+INSTRUCTIONS:
+1. Convert ${value} ${currency} to local currency of ${city}.
+2. For each item you pick, estimate its typical price in ${city}.
+3. Calculate: quantity = (total amount in local currency) / (price per item)
+4. Round to a whole number.
+5. IF style is 'Sports', ONLY pick from SPORTS CATEGORIES.
+6. IF style is 'Pop Culture', ONLY pick from POP CULTURE CATEGORIES.
+7. IF style is 'Science', ONLY pick from SCIENCE CATEGORIES.
+8. IF style is 'Nature', ONLY pick from NATURE CATEGORIES.
+9. IF style is 'General', pick from GENERAL CATEGORIES.
+10. Pick 3 different categories.
+11. DO NOT make up new categories.
+
+- Return ONLY a JSON array with this exact format: [{"item": "Movie tickets", "quantity": "40", "icon": "🎬", "category": "Experience"}]. Use appropriate emojis and categories (Food/Experience/Good).`
 };
 
 export const generateContext = async (type, value, unit, city = null, style = 'General') => {
-    // Generate cache key (include style)
-    const cacheKey = getCacheKey(type, value, unit, city) + `_${style}`;
-
-    // Check cache first
-    const cached = getCachedResult(cacheKey);
-    if (cached) {
-        return { success: true, data: cached, fromCache: true };
-    }
-
     // Get API provider preference
     const provider = localStorage.getItem('contextify_llm_provider') || 'openai';
     const apiKey = getApiKey(provider);
@@ -240,11 +327,6 @@ export const generateContext = async (type, value, unit, city = null, style = 'G
             result = await callGemini(type, value, unit, city, style, apiKey, baseValue);
         } else {
             return { success: false, error: 'Invalid provider', useStatic: true };
-        }
-
-        if (result.success) {
-            // Cache the result
-            setCachedResult(cacheKey, result.data);
         }
 
         return result;
@@ -273,28 +355,42 @@ const callOpenAI = async (type, value, unit, city, style, apiKey, baseValue) => 
             'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify({
-            model: 'gpt-4o-mini',
+            model: OPENAI_MODEL,
             messages: [
                 { role: 'system', content: 'You are a helpful assistant that creates relatable unit conversions. Always respond with valid JSON only, no additional text.' },
                 { role: 'user', content: prompt }
             ],
-            temperature: 0.7,
-            max_tokens: 300
+            max_completion_tokens: 2000
         })
     });
 
     if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error?.message || 'OpenAI API error');
+        const text = await response.text();
+        try {
+            const error = JSON.parse(text);
+            throw new Error(error.error?.message || 'OpenAI API error');
+        } catch (e) {
+            throw new Error(`OpenAI API request failed: ${response.status} ${response.statusText} - ${text.substring(0, 100)}`);
+        }
     }
 
-    const data = await response.json();
+    let data;
+    try {
+        const text = await response.text();
+        data = JSON.parse(text);
+    } catch (e) {
+        throw new Error('Invalid JSON response from OpenAI API');
+    }
+
     const content = data.choices[0].message.content;
 
     // Clean and parse JSON response
-    const parsed = JSON.parse(cleanLLMResponse(content));
-
-    return { success: true, data: parsed };
+    try {
+        const parsed = JSON.parse(cleanLLMResponse(content));
+        return { success: true, data: parsed };
+    } catch (e) {
+        throw new Error(`Failed to parse LLM response: ${e.message}. Raw content: ${content}`);
+    }
 };
 
 const callClaude = async (type, value, unit, city, style, apiKey, baseValue) => {

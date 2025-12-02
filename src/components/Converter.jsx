@@ -29,7 +29,11 @@ const Converter = ({ onOpenSettings }) => {
     }, []);
 
     useEffect(() => {
-        handleConvert();
+        const timer = setTimeout(() => {
+            handleConvert();
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timer);
     }, [inputValue, inputUnit, currency, targetCity, mode, contextStyle]);
 
     const handleConvert = async () => {
